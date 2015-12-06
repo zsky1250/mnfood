@@ -1,0 +1,13 @@
+package com.udf.mnfood.entity;
+
+import javax.persistence.Entity;
+
+/**
+ * Created by ’≈Œ¥»ª on 2015/12/6.
+ */
+@Entity
+public class User {
+
+
+
+}
