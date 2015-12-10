@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/mvc
+                           http://www.springframework.org/schema/mvc/spring-mvc.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx.xsd
+                           http://www.springframework.org/schema/util
+                           http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <!-- 开启controller注解支持 -->
+    <!-- 注意事项请参考：http://jinnianshilongnian.iteye.com/blog/1762632 -->
+    <context:component-scan base-package="com.udf.**.controller"
+                            use-default-filters="false">
+        <context:include-filter type="annotation"
+                                expression="org.springframework.web.bind.annotation.RestController"/>
+        <context:include-filter type="annotation"
+                                expression="org.springframework.stereotype.Controller"/>
+        <context:include-filter type="annotation"
+                                expression="org.springframework.web.bind.annotation.ControllerAdvice"/>
+    </context:component-scan>
+
+    <!-- 开启事务管理 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    <!-- 启动spring 注解扫描支持 -->
+    <mvc:annotation-driven validator="validator"
+                           conversion-service="conversionService"
+                           enable-matrix-variables="true"
+                           content-negotiation-manager="cnManager">
+        <!--这里指定content-negotiation-manager="cnManager" 作用是在@requestMapping中能使用 produces参数。-->
+        <mvc:message-converters register-defaults="true">
+            <!-- 解决spring @ResponseBody 默认返回编码为text/plain;charset=ISO-8859-1 出现的乱码 -->
+            <bean class="org.springframework.http.converter.StringHttpMessageConverter">
+                <constructor-arg value="UTF-8"/>
+                <property name="supportedMediaTypes">
+                    <list>
+                        <bean class="org.springframework.http.MediaType">
+                            <constructor-arg index="0" value="text"/>
+                            <constructor-arg index="1" value="plain"/>
+                        </bean>
+                        <bean class="org.springframework.http.MediaType">
+                            <constructor-arg index="0" value="text"/>
+                            <constructor-arg index="1" value="html"/>
+                        </bean>
+                    </list>
+                </property>
+            </bean>
+        </mvc:message-converters>
+        <!-- 参数绑定 -->
+        <mvc:argument-resolvers>
+            <bean class="org.springframework.data.web.PageableHandlerMethodArgumentResolver"/>
+        </mvc:argument-resolvers>
+    </mvc:annotation-driven>
+
+
+
+    <!-- 静态资源映射 -->
+    <mvc:resources mapping="/res/**" location="/res/"/>
+    <mvc:default-servlet-handler />
+
+    <!--配置用于直接跳转的controller-->
+    <mvc:view-controller path="/" view-name="/login"/>
+
+
+    <!--===============viewResolver========================================================-->
+    <bean class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+        <property name="contentNegotiationManager" ref="cnManager"/>
+        <property name="viewResolvers">
+            <list>
+                <bean class="com.udf.core.web.view.freemarker.UndiFreeMarkerViewResolver">
+                    <property name="contentType" value="text/html;charset=utf-8" />
+                    <property name="viewClass" value="com.udf.core.web.view.freemarker.UndiFreeMarkerView" />
+                    <property name="cache" value="true" />
+                    <property name="prefix" value="/page/" />
+                    <property name="suffix" value=".html" />
+                    <property name="requestContextAttribute" value="request" />
+                    <property name="exposeSpringMacroHelpers" value="true" />
+                    <property name="exposeRequestAttributes" value="false" />
+                    <property name="exposeSessionAttributes" value="false" />
+                </bean>
+                <!-- jstl view-->
+                <!--<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">-->
+                <!--<property name="order" value="2"/>-->
+                <!--<property name="prefix" value="WEB-INF/views"/>-->
+                <!--<property name="suffix" value=".jsp"/>-->
+                <!--</bean>-->
+            </list>
+        </property>
+        <property name="defaultViews">
+            <list>
+                <!--一般返回纯数据的在这里，像json,xml-->
+                <bean class="org.springframework.web.servlet.view.json.MappingJackson2JsonView">
+                    <property name="extractValueFromSingleKeyModel" value="false"/>
+                    <property name="prettyPrint" value="false"/>
+                    <property name="objectMapper" ref="undiObjectMapper"/>
+                </bean>
+            </list>
+        </property>
+    </bean>
+
+
+    <bean class="org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer">
+        <property name="templateLoaderPath" value="/WEB-INF/"/>
+        <!--<property name="freemarkerSettings">-->
+        <!--<props>-->
+        <!--<prop key="locale">zh_CN</prop>-->
+        <!--</props>-->
+        <!--</property>-->
+        <property name="freemarkerSettings" ref="freemarkerProps"/>
+        <!-- <property name="freemarkerVariables"> -->
+        <!-- <map> -->
+        <!-- </map> -->
+        <!-- </property> -->
+    </bean>
+    <!-- 设置freeMarker的配置文件路径 -->
+    <bean id="freemarkerProps" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="location" value="/WEB-INF/config/freemarker.properties"/>
+    </bean>
+
+    <!--设置Jackson2用的ObjectMapper 定制了一些序列化用到的属性-->
+    <bean id="undiObjectMapper" class="org.springframework.http.converter.json.Jackson2ObjectMapperFactoryBean">
+        <property name="mixIns">
+            <map>
+                <entry key="com.udf.showcase.entity.Catalog" value="com.udf.core.orm.nestedSet.view.NestedSetMixin"/>
+            </map>
+        </property>
+        <property name="featuresToEnable">
+            <array>
+                <util:constant static-field="com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT"/>
+                <util:constant static-field="com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS"/>
+            </array>
+        </property>
+    </bean>
+</beans>
+
+
+
